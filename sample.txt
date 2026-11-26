@@ -1,0 +1,5 @@
+This is a sample file for testing.
+
+Each non-empty line becomes one text message.
+Blank lines are skipped.
+Replace this with your own script.txt when you're ready.
