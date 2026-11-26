@@ -4,6 +4,8 @@
 Example:
     python3 send_script.py --to "+15551234567" --file script.txt --dry-run
     python3 send_script.py --to "+15551234567" --file script.txt
+    python3 send_script.py --list-groups
+    python3 send_script.py --group "Band Chat" --file script.txt
 """
 
 import argparse
@@ -24,6 +26,40 @@ on run {targetHandle, messageText}
 end run
 """
 
+# Same idea, for a group chat picked by the name shown at the top of the chat.
+APPLESCRIPT_GROUP_NAME = """
+on run {groupName, messageText}
+    tell application "Messages"
+        send messageText to (first chat whose name is groupName)
+    end tell
+end run
+"""
+
+# Same idea, for a group chat picked by its internal id (works for unnamed groups).
+APPLESCRIPT_GROUP_ID = """
+on run {groupId, messageText}
+    tell application "Messages"
+        send messageText to chat id groupId
+    end tell
+end run
+"""
+
+# Lists every chat Messages knows about, as "name <tab> id" lines.
+APPLESCRIPT_LIST = """
+tell application "Messages"
+    set output to ""
+    repeat with c in chats
+        set chatName to "(no name)"
+        try
+            set n to name of c
+            if n is not missing value then set chatName to n
+        end try
+        set output to output & chatName & tab & (id of c) & linefeed
+    end repeat
+    return output
+end tell
+"""
+
 
 def load_lines(path):
     """Read the file and return its non-empty lines, with whitespace trimmed."""
@@ -31,10 +67,26 @@ def load_lines(path):
         return [line.strip() for line in f if line.strip()]
 
 
-def send_message(recipient, text):
+def pick_applescript(group):
+    """Choose the AppleScript for a person, a group name, or a group id."""
+    if group is None:
+        return APPLESCRIPT
+    # Group ids look like "iMessage;+;chat1234..." - names don't contain ";".
+    return APPLESCRIPT_GROUP_ID if ";" in group else APPLESCRIPT_GROUP_NAME
+
+
+def list_groups():
+    """Print the chats Messages knows about, so you can copy a name or id."""
+    result = subprocess.run(["osascript", "-e", APPLESCRIPT_LIST],
+                            check=True, capture_output=True, text=True)
+    print("NAME\tID")
+    print(result.stdout.strip())
+
+
+def send_message(applescript, recipient, text):
     """Send one message through Messages. Raises an error if Messages refuses."""
     subprocess.run(
-        ["osascript", "-e", APPLESCRIPT, recipient, text],
+        ["osascript", "-e", applescript, recipient, text],
         check=True,
         capture_output=True,
         text=True,
@@ -45,8 +97,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Send a text file line by line through the macOS Messages app."
     )
-    parser.add_argument("--to", required=True,
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--to",
                         help="Phone number (like +15551234567) or iMessage email")
+    target.add_argument("--group",
+                        help="Group chat name, or a chat id from --list-groups")
+    target.add_argument("--list-groups", action="store_true",
+                        help="Show your chats' names and ids, then exit")
     parser.add_argument("--file", default="script.txt",
                         help="Text file to send (default: script.txt)")
     parser.add_argument("--delay", type=float, default=1.5,
@@ -60,6 +117,16 @@ def main():
     parser.add_argument("--yes", action="store_true",
                         help="Skip the confirmation question")
     args = parser.parse_args()
+
+    if args.list_groups:
+        if platform.system() != "Darwin":
+            sys.exit("Listing chats only works on a Mac.")
+        list_groups()
+        return
+
+    recipient = args.group or args.to
+    applescript = pick_applescript(args.group)
+    label = f"the group '{args.group}'" if args.group else args.to
 
     try:
         lines = load_lines(args.file)
@@ -81,7 +148,7 @@ def main():
                      "app. Use --dry-run to preview on other systems.")
         if not args.yes:
             minutes = len(to_send) * args.delay / 60
-            print(f"About to send {len(to_send)} messages to {args.to} "
+            print(f"About to send {len(to_send)} messages to {label} "
                   f"(roughly {minutes:.0f} min). Ctrl+C stops it at any time.")
             if input("Type 'send' to go: ").strip().lower() != "send":
                 sys.exit("Cancelled. Nothing was sent.")
@@ -92,7 +159,7 @@ def main():
             if args.dry_run:
                 print(f"[{number}/{total}] {line}")
                 continue
-            send_message(args.to, line)
+            send_message(applescript, recipient, line)
             print(f"[{number}/{total}] sent: {line}")
             if number < last:
                 time.sleep(args.delay)

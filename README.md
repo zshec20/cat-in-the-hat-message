@@ -25,11 +25,31 @@ python3 send_script.py --to "+15551234567"
 
 The first time, macOS asks whether Terminal may control Messages. Click OK.
 
+## Group chats
+
+If the group has a name (shown at the top of the chat), use it:
+
+```
+python3 send_script.py --group "Band Chat"
+```
+
+If the group has no name, list your chats and copy its id instead:
+
+```
+python3 send_script.py --list-groups
+python3 send_script.py --group "iMessage;+;chat123456789"
+```
+
+The group must already exist in Messages, and everyone in it must be on
+iMessage (blue bubbles). Groups with green-bubble members won't work.
+
 ## Options
 
 | Option | What it does |
 | --- | --- |
-| `--to` | Phone number or iMessage email of the recipient (required) |
+| `--to` | Phone number or iMessage email of one person |
+| `--group` | Group chat name or id, instead of `--to` |
+| `--list-groups` | Show your chats' names and ids, then exit |
 | `--file` | Text file to send (default `script.txt`) |
 | `--delay` | Seconds between messages (default `1.5`) |
 | `--start` | Line number to start from, for resuming after a stop |
