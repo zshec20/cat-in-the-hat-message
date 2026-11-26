@@ -5,9 +5,21 @@ Sends a text file to someone one line at a time through the Messages app on a Ma
 ## Setup
 
 1. You need a Mac signed in to iMessage, with Python 3 (already on most Macs).
-2. Save the script you want to send as `script.txt` in this folder, one line of
-   dialogue per line. Blank lines are skipped. The file is not included here
-   because the movie script is copyrighted.
+2. Save the script you want to send as `script.txt` in this folder, one message
+   per line. Blank lines are skipped. The file is not included here because
+   the movie script is copyrighted.
+
+### Making script.txt from a saved web page
+
+If you saved a transcript page from the web as an `.html` file, convert it:
+
+```
+python3 convert.py ~/Downloads/transcript.html
+```
+
+This strips the page's headers, tags and music-note junk and writes
+`script.txt`, one message per line of dialogue. Add `--join` to send each
+subtitle as a single message instead (about half as many, longer texts).
 
 ## Use
 
